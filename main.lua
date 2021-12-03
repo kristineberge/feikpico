@@ -1,15 +1,29 @@
+MAX_POINTS = 2
 dog_sprite_one = {x = 8, y = 0, w = 8, h = 8}
 dog_sprite_two = {x = 16, y = 0, w = 8, h = 8}
 cat_sprite = {x = 0, y = 0, w = 8, h = 8}
-sprites = {cat_sprite, dog_sprite_one, dog_sprite_two}
+mouse_sprite = {x = 24, y = 0, w = 8, h = 8}
+sprites = {cat_sprite, mouse_sprite, dog_sprite_one, dog_sprite_two}
 
-dog_one = {x = 120, y = 120, sprite = dog_sprite_one}
-dog_two = {x = 0, y = 0, sprite = dog_sprite_two}
-cat = {x = 60, y = 60, sprite = cat_sprite}
+dog_one = {sx = 0, sy = 0, p = 0, m = 1, sprite = dog_sprite_one}
+dog_two = {sx = 120, sy = 120, p = 0, m = 1, sprite = dog_sprite_two}
+cat = {sx = 60, sy = 60, sprite = cat_sprite}
+mouse = {sx = 60, sy = 120, sprite = mouse_sprite}
 
-entities = {dog_one, dog_two, cat}
+entities = {dog_one, dog_two, cat, mouse}
 player_entities = {dog_one, dog_two}
-item_entities = {cat}
+item_entities = {cat, mouse}
+
+win_sprite = {x = 80, y = 0, w = 32, h = 32}
+WIN_SCREEN_DURATION = 30
+win_screen = 0
+
+victory_sprite = {x = 48, y = 0, w = 32, h = 32}
+VICTORY_SCREEN_DURATION = 30
+victory_screen = 0
+
+map_index = 1
+maps = {{x = 0, y = 0}, {x = 16, y = 0}, {x = 32, y = 0}}
 
 function draw_entity(entity)
     if (entity.sprite) then
@@ -20,7 +34,23 @@ function draw_entity(entity)
     end
 end
 
+function reset_soft()
+    for e in all(entities) do
+        e.x = e.sx
+        e.y = e.sy
+    end
+end
+
+function reset_hard()
+    for e in all(entities) do
+        e.x = e.sx
+        e.y = e.sy
+        e.p = 0
+    end
+end
+
 function _init()
+    reset_hard()
     for s in all(sprites) do
         local pixels = {}
         for x = 0, s.w - 1 do
@@ -75,11 +105,48 @@ function intersect(e1, e2)
     return {}
 end
 
+function draw_points() print(dog_one.p .. ":" .. dog_two.p, 7 * 8 + 2, 1, 0) end
+
+function draw_win_screen()
+    sspr(win_sprite.x, win_sprite.y, win_sprite.w, win_sprite.h, 48, 48)
+end
+
+function draw_victory_screen()
+    sspr(victory_sprite.x, victory_sprite.y, victory_sprite.w, victory_sprite.h,
+         48, 48)
+end
+
 function _draw()
     cls()
-    map(0, 0, 0, 0, 16, 16)
-    for entity in all(entities) do draw_entity(entity) end
-    is_blocked(dog_one.x, dog_one.y)
+    local current_map = maps[map_index]
+    map(current_map.x, current_map.y, 0, 0, 16, 16)
+    if (win_screen > 0) then
+        draw_win_screen()
+    elseif (victory_screen > 0) then
+        draw_victory_screen()
+    else
+        for entity in all(entities) do draw_entity(entity) end
+    end
+    draw_points()
+end
+
+function gravity(mover, gravity_objects)
+    local x = mover.x
+    local y = mover.y
+
+    for obj in all(gravity_objects) do
+        local dx = mover.x - obj.x
+        local dy = mover.y - obj.y
+        local d = sqrt(dx * dx + dy * dy) / obj.m
+        x = mover.x + dx * d
+        y = mover.y + dy * d
+    end
+
+    if (not is_blocked(x, y)) then
+        mover.x = x
+        mover.y = y
+    end
+
 end
 
 function random_move(entity)
@@ -96,9 +163,9 @@ function random_move(entity)
 end
 
 function is_blocked(x, y)
+    if (x < 0 or x > 127 or y < 0 or y > 127) then return true end
     local sprite = mget(x / 8, y / 8)
     local flag = fget(sprite, 1)
-    -- print("x:" .. x .. "y:" .. y .. "f:" .. fget(sprite) .. "s:" .. sprite)
     if flag then
         return true
     else
@@ -129,21 +196,27 @@ function move_dog(dog, left, right, up, down)
 end
 
 function _update()
-
+    if (win_screen > 0) then
+        win_screen = win_screen - 1
+        return
+    elseif (victory_screen > 0) then
+        victory_screen = victory_screen - 1
+        return
+    end
     local left = btn(0, 0)
     local right = btn(1, 0)
     local up = btn(2, 0)
     local down = btn(3, 0)
     local cn = btn(4, 1)
 
-    move_dog(dog_one, left, right, up, down)
+    move_dog(dog_two, left, right, up, down)
 
     local left_two = btn(0, 1)
     local right_two = btn(1, 1)
     local up_two = btn(2, 1)
     local down_two = btn(3, 1)
 
-    move_dog(dog_two, left_two, right_two, up_two, down_two)
+    move_dog(dog_one, left_two, right_two, up_two, down_two)
 
     for dog in all(player_entities) do
         for item in all(item_entities) do
@@ -154,13 +227,22 @@ function _update()
 
             if count(intersecting_pixels) > 0 then
                 sfx(3)
-                del(item_entities, item)
-                del(entities, item)
+                dog.p = dog.p + 1
+                map_index = ((map_index + 1) % count(maps)) + 1
+                if (dog.p >= MAX_POINTS) then
+                    reset_hard()
+                    victory_screen = VICTORY_SCREEN_DURATION
+                    sfx(1)
+                else
+                    reset_soft()
+                    win_screen = WIN_SCREEN_DURATION
+                end
             end
 
         end
     end
 
     random_move(cat)
+    gravity(cat, {dog_one, dog_two})
 
 end
