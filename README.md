@@ -17,3 +17,9 @@ Manualen til Pico8: https://www.lexaloffle.com/dl/docs/pico-8_manual.html
 - også `RUN`
 
 Gjør du endringer i filene så kan du startet spillet på nytt ved å trykke `ctrl+R` (eller tilsvarende på mac).
+
+
+# Idéer:
+ - Gravity!
+ - Ulv som jager hundene?
+ - Random map generator
