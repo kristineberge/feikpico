@@ -79,6 +79,7 @@ function _draw()
     cls()
     map(0, 0, 0, 0, 16, 16)
     for entity in all(entities) do draw_entity(entity) end
+    is_blocked(dog_one.x, dog_one.y)
 end
 
 function random_move(entity)
@@ -95,9 +96,9 @@ function random_move(entity)
 end
 
 function is_blocked(x, y)
-    local sprite = mget(x, y)
+    local sprite = mget(x / 8, y / 8)
     local flag = fget(sprite, 1)
-
+    -- print("x:" .. x .. "y:" .. y .. "f:" .. fget(sprite) .. "s:" .. sprite)
     if flag then
         return true
     else
@@ -107,15 +108,22 @@ function is_blocked(x, y)
 end
 
 function move_dog(dog, left, right, up, down)
-
     if left then
-        if not is_blocked(dog.x - 1, dog.y) then dog.x = dog.x - 1 end
+        if not (is_blocked(dog.x - 1, dog.y) or is_blocked(dog.x - 1, dog.y + 7)) then
+            dog.x = dog.x - 1
+        end
     elseif right then
-        if not is_blocked(dog.x + 1, dog.y) then dog.x = dog.x + 1 end
+        if not (is_blocked(dog.x + 8, dog.y) or is_blocked(dog.x + 8, dog.y + 7)) then
+            dog.x = dog.x + 1
+        end
     elseif up then
-        if not is_blocked(dog.x, dog.y - 1) then dog.y = dog.y - 1 end
+        if not (is_blocked(dog.x, dog.y - 1) or is_blocked(dog.x + 7, dog.y - 1)) then
+            dog.y = dog.y - 1
+        end
     elseif down then
-        if not is_blocked(dog.x, dog.y + 1) then dog.y = dog.y + 1 end
+        if not (is_blocked(dog.x, dog.y + 8) or is_blocked(dog.x + 7, dog.y + 8)) then
+            dog.y = dog.y + 1
+        end
     end
 
 end
