@@ -5,9 +5,9 @@ cat_sprite = {x = 0, y = 0, w = 8, h = 8}
 mouse_sprite = {x = 24, y = 0, w = 8, h = 8}
 sprites = {cat_sprite, mouse_sprite, dog_sprite_one, dog_sprite_two}
 
-dog_one = {sx = 0, sy = 0, p = 0, m = 1, sprite = dog_sprite_one}
-dog_two = {sx = 120, sy = 120, p = 0, m = 1, sprite = dog_sprite_two}
-cat = {sx = 60, sy = 60, sprite = cat_sprite}
+dog_one = {sx = 0, sy = 0, p = 0, sprite = dog_sprite_one}
+dog_two = {sx = 120, sy = 120, p = 0, sprite = dog_sprite_two}
+cat = {sx = 60, sy = 60, target_x = 60, target_y = 60, sprite = cat_sprite}
 mouse = {sx = 60, sy = 120, sprite = mouse_sprite}
 
 entities = {dog_one, dog_two, cat, mouse}
@@ -128,25 +128,18 @@ function _draw()
         for entity in all(entities) do draw_entity(entity) end
     end
     draw_points()
+
+    print("kitty target x:" .. cat.target_x .. ", target y:" .. cat.target_y, 0,
+          10)
+    pset(cat.target_x, cat.target_y, 8)
 end
 
-function gravity(mover, gravity_objects)
-    local x = mover.x
-    local y = mover.y
+function target_acquisition(mover, obj1, obj2)
+    local x = max(obj1.x, obj2.x) - (abs(obj1.x - obj2.x) / 2)
+    local y = max(obj1.y, obj2.y) - (abs(obj1.y - obj2.y) / 2)
 
-    for obj in all(gravity_objects) do
-        local dx = mover.x - obj.x
-        local dy = mover.y - obj.y
-        local d = sqrt(dx * dx + dy * dy) / obj.m
-        x = mover.x + dx * d
-        y = mover.y + dy * d
-    end
-
-    if (not is_blocked(x, y)) then
-        mover.x = x
-        mover.y = y
-    end
-
+    mover.target_x = x
+    mover.target_y = y
 end
 
 function random_move(entity)
@@ -242,7 +235,8 @@ function _update()
         end
     end
 
-    random_move(cat)
-    gravity(cat, {dog_one, dog_two})
+    -- random_move(cat)
+    -- TODO: a* to target
+    target_acquisition(cat, dog_one, dog_two)
 
 end
