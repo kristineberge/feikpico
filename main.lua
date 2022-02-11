@@ -1,16 +1,18 @@
-MAX_POINTS = 2
+MAX_POINTS = 3
 dog_sprite_one = {x = 8, y = 0, w = 8, h = 8}
 dog_sprite_two = {x = 16, y = 0, w = 8, h = 8}
 cat_sprite = {x = 0, y = 0, w = 8, h = 8}
 mouse_sprite = {x = 24, y = 0, w = 8, h = 8}
-sprites = {cat_sprite, mouse_sprite, dog_sprite_one, dog_sprite_two}
+wolf_sprite = {x = 32, y = 0, w = 8, h = 8}
+sprites = {cat_sprite, mouse_sprite, dog_sprite_one, dog_sprite_two, wolf_sprite}
 
-dog_one = {sx = 0, sy = 0, p = 0, sprite = dog_sprite_one}
-dog_two = {sx = 120, sy = 120, p = 0, sprite = dog_sprite_two}
-cat = {sx = 60, sy = 60, target_x = 60, target_y = 60, sprite = cat_sprite}
-mouse = {sx = 60, sy = 120, sprite = mouse_sprite}
+dog_one = {sx = 0, sy = 0, p = 0, sprite = dog_sprite_one, x=nil, y=nil, sub_x=nil, sub_y=nil}
+dog_two = {sx = 120, sy = 120, p = 0, sprite = dog_sprite_two, x=nil, y=nil, sub_x=nil, sub_y=nil}
+cat = {sx = 60, sy = 60, target_x = 60, target_y = 60, sprite = cat_sprite, x=nil, y=nil, sub_x=nil, sub_y=nil}
+mouse = {sx = 60, sy = 119, sprite = mouse_sprite, x=nil, y=nil, sub_x=nil, sub_y=nil}
+wolf = {sx = 60, sy = 90, sprite = wolf_sprite, x=nil, y=nil, sub_x=nil, sub_y=nil}
 
-entities = {dog_one, dog_two, cat, mouse}
+entities = {dog_one, dog_two, cat, mouse, wolf}
 player_entities = {dog_one, dog_two}
 item_entities = {cat, mouse}
 
@@ -38,15 +40,27 @@ function reset_soft()
     for e in all(entities) do
         e.x = e.sx
         e.y = e.sy
+        e.sub_x = 0
+        e.sub_y = 0
     end
+    wolf.x = 32 + flr(rnd(64))
+    wolf.y = 32 + flr(rnd(64))
+    mouse.x = 32 + flr(rnd(64))
+    mouse.y = 32 + flr(rnd(64))
 end
 
 function reset_hard()
     for e in all(entities) do
         e.x = e.sx
         e.y = e.sy
+        e.sub_x = 0
+        e.sub_y = 0
         e.p = 0
     end
+    wolf.x = 32 + flr(rnd(64))
+    wolf.y = 32 + flr(rnd(64))
+    mouse.x = 32 + flr(rnd(64))
+    mouse.y = 32 + flr(rnd(64))
 end
 
 function _init()
@@ -116,6 +130,42 @@ function draw_victory_screen()
          48, 48)
 end
 
+function gravity(mover, gravity_objects, attraction_strength)
+    local x = 0
+    local y = 0
+
+    for obj in all(gravity_objects) do
+        local dx = mover.x - obj.x
+        local dy = mover.y - obj.y
+        local d = max(sqrt(dx * dx + dy * dy), 3)
+        local force_strength = - attraction_strength / (d * d)
+        x = x + dx * force_strength
+        y = y + dy * force_strength
+    end
+    mover.sub_x = mover.sub_x + x
+    mover.sub_y = mover.sub_y + y
+
+    sync_subpixel(mover)
+end
+
+function sync_subpixel(mover)
+    repeat
+        if mover.sub_x >= 1 then
+            if is_inside_board(mover.x + 1, mover.y) then mover.x = mover.x + 1 end
+            mover.sub_x = mover.sub_x - 1
+        elseif mover.sub_x <= -1 then
+            if is_inside_board(mover.x - 1, mover.y) then mover.x = mover.x - 1 end
+            mover.sub_x = mover.sub_x + 1
+        elseif mover.sub_y >= 1 then
+            if is_inside_board(mover.x, mover.y + 1) then mover.y = mover.y + 1 end
+            mover.sub_y = mover.sub_y - 1
+        elseif mover.sub_y <= -1 then
+            if is_inside_board(mover.x, mover.y - 1) then mover.y = mover.y - 1 end
+            mover.sub_y = mover.sub_y + 1
+        end
+    until abs(mover.sub_x) < 1 and abs(mover.sub_y) < 1
+end
+
 function _draw()
     cls()
     local current_map = maps[map_index]
@@ -128,10 +178,6 @@ function _draw()
         for entity in all(entities) do draw_entity(entity) end
     end
     draw_points()
-
-    print("kitty target x:" .. cat.target_x .. ", target y:" .. cat.target_y, 0,
-          10)
-    pset(cat.target_x, cat.target_y, 8)
 end
 
 function target_acquisition(mover, obj1, obj2)
@@ -155,6 +201,28 @@ function random_move(entity)
     end
 end
 
+function move_towards_target(entity)
+
+    local x_diff = entity.target_x - entity.x
+    local y_diff = entity.target_y - entity.y
+
+    local speed = 2
+
+    if abs(x_diff) > abs(y_diff) then
+        if x_diff > 4 then
+            if entity.x < 119 then entity.x = entity.x + speed end
+        elseif x_diff < 4 then
+            if entity.x > 2 then entity.x = entity.x - speed end
+        end
+    else
+        if y_diff > 4 then
+            if entity.y < 119 then entity.y = entity.y + speed end
+        elseif y_diff < 4 then
+            if entity.y > 2 then entity.y = entity.y - speed end
+        end
+    end
+end
+
 function is_blocked(x, y)
     if (x < 0 or x > 127 or y < 0 or y > 127) then return true end
     local sprite = mget(x / 8, y / 8)
@@ -165,6 +233,11 @@ function is_blocked(x, y)
         return false
     end
 
+end
+
+function is_inside_board(x, y)
+    if (x < 0 or x > 119 or y < 0 or y > 119) then return false end
+    return true
 end
 
 function move_dog(dog, left, right, up, down)
@@ -212,7 +285,7 @@ function _update()
     move_dog(dog_one, left_two, right_two, up_two, down_two)
 
     for dog in all(player_entities) do
-        for item in all(item_entities) do
+        for item in all({cat}) do
             local intersecting_pixels = {}
             if count(item_entities) > 0 then
                 intersecting_pixels = intersect(dog, item)
@@ -221,7 +294,6 @@ function _update()
             if count(intersecting_pixels) > 0 then
                 sfx(3)
                 dog.p = dog.p + 1
-                map_index = ((map_index + 1) % count(maps)) + 1
                 if (dog.p >= MAX_POINTS) then
                     reset_hard()
                     victory_screen = VICTORY_SCREEN_DURATION
@@ -231,12 +303,41 @@ function _update()
                     win_screen = WIN_SCREEN_DURATION
                 end
             end
+        end
+        -- wolf
+        for item in all({wolf}) do
+            local intersecting_pixels = {}
+            if count(item_entities) > 0 then
+                intersecting_pixels = intersect(dog, item)
+            end
 
+            if count(intersecting_pixels) > 0 then
+                sfx(3)
+                local other_dog = nil
+
+                if dog == dog_one then other_dog = dog_two
+                else other_dog = dog_one 
+                end
+
+                other_dog.p = other_dog.p + 1
+                if (other_dog.p >= MAX_POINTS) then
+                    reset_hard()
+                    victory_screen = VICTORY_SCREEN_DURATION
+                    sfx(1)
+                else
+                    reset_soft()
+                    win_screen = WIN_SCREEN_DURATION
+                end
+            end
         end
     end
 
     -- random_move(cat)
     -- TODO: a* to target
-    target_acquisition(cat, dog_one, dog_two)
-
+    gravity(cat, {dog_one, dog_two}, -11)
+    gravity(cat, {mouse}, 7)
+    gravity(mouse, {cat}, -15)
+    gravity(mouse, {wolf}, 10)
+    gravity(wolf, {mouse}, -7)
+    gravity(wolf, {dog_one, dog_two}, 8)
 end
